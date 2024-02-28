@@ -1,0 +1,122 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trendz-app-deployment
+  namespace: trendz
+  labels:
+    app: trendz-app-deployment-label
+spec:
+  selector:
+    matchLabels:
+      app: trendz-app-pod-label
+  replicas: 1
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      name: trendz-app-pod
+      labels:
+        app: trendz-app-pod-label
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/path: '/actuator/prometheus'
+        prometheus.io/port: '8888'
+    spec:
+      terminationGracePeriodSeconds: 60
+#      affinity:
+#        nodeAffinity:
+#          requiredDuringSchedulingIgnoredDuringExecution:
+#            nodeSelectorTerms:
+#              - matchExpressions:
+#                  - key: trendz-node-type
+#                    operator: In
+#                    values:
+#                      - working-node
+      containers:
+        - name: trendz-app-container
+          image: thingsboard/trendz:1.10.3
+          imagePullPolicy: IfNotPresent
+          resources:
+            limits:
+              cpu:    "4000m"
+              memory: "4000Mi"
+            requests:
+              cpu:    "4000m"
+              memory: "4000Mi"
+          ports:
+            - name: app-api-pod
+              protocol: TCP
+              containerPort: 8888
+          env:
+            - name: TRENDZ_LICENSE_SECRET
+              value: "PUT_LICENSE_HERE"
+            - name: TRENDZ_LICENSE_INSTANCE_DATA_FILE
+              value: "/data/license.data"
+            - name: JWT_TOKEN_SIGNING_KEY
+              value: "thingsboardDefaultSigningKey"
+            - name: TB_API_URL
+              value: "http://thingsboard-app:8080"
+          envFrom:
+            - configMapRef:
+                name: trendz-app-db-config
+          readinessProbe:
+            httpGet:
+              path: /trendz/actuator
+              port: 8888
+            initialDelaySeconds: 100  # tests = 100, prod (c5.xlarge) = 20
+            periodSeconds: 5
+            timeoutSeconds: 1
+            failureThreshold: 10
+          livenessProbe:
+            httpGet:
+              path: /trendz/actuator
+              port: 8888
+            initialDelaySeconds: 100  # tests = 100, prod (c5.xlarge) = 20
+            periodSeconds: 5
+            timeoutSeconds: 1
+            failureThreshold: 10
+          startupProbe:
+            httpGet:
+              path: /trendz/actuator
+              port: 8888
+            initialDelaySeconds: 100  # tests = 100, prod (c5.xlarge) = 20
+            periodSeconds: 5
+            timeoutSeconds: 1
+            failureThreshold: 10
+          volumeMounts:
+            - name: trendz-app-config
+              mountPath: /trendz-config-files
+            - name: trendz-app-logs
+              mountPath: /var/log/trendz
+            - name: trendz-app-pvc
+              mountPath: /data
+      volumes:
+        - name: trendz-app-config
+          configMap:
+            name: trendz-app-config
+            items:
+              - key: conf
+                path: trendz.conf
+              - key: logback
+                path: logback.xml
+        - name: trendz-app-logs
+          emptyDir: { }
+        - name: trendz-app-pvc
+          persistentVolumeClaim:
+            claimName: trendz-app-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: trendz-app-service
+  namespace: trendz
+spec:
+  type: LoadBalancer
+  selector:
+    app: trendz-app-pod-label
+  ports:
+    - name: app-api-service
+      protocol: TCP
+      port: 8888
+      targetPort: app-api-pod
+---
