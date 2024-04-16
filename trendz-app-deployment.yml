@@ -22,7 +22,7 @@ spec:
         prometheus.io/path: '/actuator/prometheus'
         prometheus.io/port: '8888'
     spec:
-      terminationGracePeriodSeconds: 60
+      terminationGracePeriodSeconds: 5
 #      affinity:
 #        nodeAffinity:
 #          requiredDuringSchedulingIgnoredDuringExecution:
@@ -71,7 +71,7 @@ spec:
             httpGet:
               path: /trendz/actuator
               port: 8888
-            initialDelaySeconds: 100  # tests = 100, prod (c5.xlarge) = 20
+            initialDelaySeconds: 100
             periodSeconds: 5
             timeoutSeconds: 1
             failureThreshold: 10
@@ -79,7 +79,7 @@ spec:
             httpGet:
               path: /trendz/actuator
               port: 8888
-            initialDelaySeconds: 100  # tests = 100, prod (c5.xlarge) = 20
+            initialDelaySeconds: 100
             periodSeconds: 5
             timeoutSeconds: 1
             failureThreshold: 10
@@ -87,7 +87,7 @@ spec:
             httpGet:
               path: /trendz/actuator
               port: 8888
-            initialDelaySeconds: 100  # tests = 100, prod (c5.xlarge) = 20
+            initialDelaySeconds: 100
             periodSeconds: 5
             timeoutSeconds: 1
             failureThreshold: 10
