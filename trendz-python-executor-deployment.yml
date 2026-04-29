@@ -34,22 +34,26 @@ spec:
 #                      - working-node
       containers:
         - name: trendz-python-executor-container
-          image: thingsboard/trendz-python-executor:1.14.0
+          image: thingsboard/trendz-python-executor:1.15.0.6
           imagePullPolicy: Always
           resources:
             limits:
-              cpu:    "500m"
-              memory: "2000M"
+              cpu:    "1500m"
+              memory: "1024M"
             requests:
-              cpu:    "500m"
-              memory: "2000M"
+              cpu:    "1500m"
+              memory: "1024M"
           ports:
             - name: exec-api-pod
               protocol: TCP
               containerPort: 8181
           env:
-            - name: MAX_HEAP_SIZE
-              value: "1900M"
+            - name: TB_SERVICE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: JAVA_OPTS
+              value: "-Xms384m -Xmx384m"
             - name: SCRIPT_ENGINE_RUNTIME_TIMEOUT
               value: "30000"
             - name: EXECUTOR_MANAGER
@@ -59,7 +63,7 @@ spec:
             - name: THROTTLING_QUEUE_CAPACITY
               value: "10"
             - name: NETWORK_BUFFER_SIZE
-              value: "5242880"
+              value: "20971520"
           readinessProbe:
             httpGet:
               path: /actuator
@@ -80,19 +84,23 @@ spec:
             httpGet:
               path: /actuator
               port: 8181
-            initialDelaySeconds: 30
-            periodSeconds: 5
+            initialDelaySeconds: 20
+            periodSeconds: 10
             timeoutSeconds: 1
             failureThreshold: 10
           volumeMounts:
             - name: trendz-python-executor-config
-              mountPath: /app/config
+              mountPath: /python-executor-config-files
       volumes:
         - name: trendz-python-executor-config
           configMap:
             name: trendz-python-executor-config
             items:
-              - key: logback
+              - key: requirements.txt
+                path: requirements.txt
+              - key: python-executor.conf
+                path: python-executor.conf
+              - key: logback.xml
                 path: logback.xml
 ---
 apiVersion: v1

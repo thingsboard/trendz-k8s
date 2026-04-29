@@ -34,25 +34,31 @@ spec:
 #                      - working-node
       containers:
         - name: trendz-app-container
-          image: thingsboard/trendz:1.14.0
-          imagePullPolicy: IfNotPresent
+          image: thingsboard/trendz:1.15.0.6
+          imagePullPolicy: Always
           resources:
             limits:
-              cpu:    "2200m"
+              cpu:    "1500m"
               memory: "3700M"
             requests:
-              cpu:    "2200m"
+              cpu:    "1500m"
               memory: "3700M"
           ports:
             - name: app-api-pod
               protocol: TCP
               containerPort: 8888
           env:
-            - name: TRENDZ_LICENSE_SECRET
+            - name: TB_SERVICE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: JAVA_OPTS
+              value: "-Xms2000m -Xmx2000m"
+            - name: TRENDZ_LICENSE_SECRET # Only for legacy subscriptions / licenses
               value: "PUT_LICENSE_HERE"
             - name: TRENDZ_LICENSE_INSTANCE_DATA_FILE
               value: "/data/license.data"
-            - name: JWT_TOKEN_SIGNING_KEY
+            - name: JWT_TOKEN_SIGNING_KEY # Only for ThingsBoard older than 4.3.0
               value: "thingsboardDefaultSigningKey"
             - name: TB_API_URL
               value: "http://thingsboard-app:8080"
@@ -103,9 +109,9 @@ spec:
           configMap:
             name: trendz-app-config
             items:
-              - key: conf
+              - key: trendz.conf
                 path: trendz.conf
-              - key: logback
+              - key: logback.xml
                 path: logback.xml
         - name: trendz-app-logs
           emptyDir: { }

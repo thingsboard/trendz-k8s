@@ -6,18 +6,18 @@ metadata:
   labels:
     name: trendz-app-config-label
 data:
-  conf: |
-    export JAVA_OPTS="$JAVA_OPTS -Dplatform=deb -Dinstall.data_dir=/usr/share/trendz/data"
-    export JAVA_OPTS="$JAVA_OPTS -Xms256M -Xmx4G" 
-    export JAVA_OPTS="$JAVA_OPTS -Xlog:gc=debug:file=/var/log/trendz/gc.log -XX:+IgnoreUnrecognizedVMOptions -XX:+HeapDumpOnOutOfMemoryError -XX:+PrintGCDateStamps"
-    export JAVA_OPTS="$JAVA_OPTS -XX:+PrintHeapAtGC -XX:+PrintTenuringDistribution -XX:+PrintGCApplicationStoppedTime -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=10"
-    export JAVA_OPTS="$JAVA_OPTS -XX:GCLogFileSize=10M -XX:-UseBiasedLocking -XX:+UseTLAB -XX:+ResizeTLAB -XX:+PerfDisableSharedMem -XX:+UseCondCardMark"
-    export JAVA_OPTS="$JAVA_OPTS -XX:CMSWaitDuration=10000 -XX:+UseParNewGC -XX:+CMSParallelRemarkEnabled -XX:+CMSParallelInitialMarkEnabled"
-    export JAVA_OPTS="$JAVA_OPTS -XX:+CMSEdenChunksRecordAlways -XX:CMSInitiatingOccupancyFraction=75 -XX:+UseCMSInitiatingOccupancyOnly -XX:+ExitOnOutOfMemoryError"
+  trendz.conf: |
+    # Mounted by trendz-app-config
     export LOG_FILENAME=trendz.out
     export LOADER_PATH=/usr/share/trendz/conf,/usr/share/trendz/extensions
-    export SQL_DATA_FOLDER==/usr/share/trendz/data/sql
-  logback: |
+    
+    export JAVA_OPTS="$JAVA_OPTS -Dplatform=deb -Dinstall.data_dir=/usr/share/trendz/data"
+    export JAVA_OPTS="$JAVA_OPTS -Xlog:gc*,heap*,age*,safepoint=debug:file=/var/log/trendz/${TB_SERVICE_ID}-gc.log:time,uptime,level,tags:filecount=10,filesize=10M"
+    export JAVA_OPTS="$JAVA_OPTS -XX:+IgnoreUnrecognizedVMOptions -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/log/trendz/${TB_SERVICE_ID}-heapdump.bin"
+    export JAVA_OPTS="$JAVA_OPTS -XX:+UseTLAB -XX:+ResizeTLAB -XX:+PerfDisableSharedMem -XX:+UseCondCardMark"
+    export JAVA_OPTS="$JAVA_OPTS -XX:+UseG1GC -XX:MaxGCPauseMillis=500 -XX:+UseStringDeduplication -XX:+ParallelRefProcEnabled -XX:MaxTenuringThreshold=10"
+
+  logback.xml: |
     <?xml version="1.0" encoding="UTF-8" ?>
     
     <!DOCTYPE configuration>
@@ -45,6 +45,15 @@ data:
         </appender>
     
         <logger name="org.thingsboard.trendz" level="INFO" />
+    
+        <logger name="org.hibernate.engine.jdbc.spi.SqlExceptionHelper" level="WARN" />
+        <logger name="org.springframework.security.web.FilterChainProxy" level="INFO" />
+        <logger name="org.springframework.security.web.authentication.AnonymousAuthenticationFilter" level="INFO" />
+        <logger name="org.springframework.security.authorization.method.AuthorizationManagerBeforeMethodInterceptor" level="INFO" />
+    
+        <!--    <logger name="org.thingsboard.trendz.service.provider.TbWebClient" level="TRACE" />-->
+        <!--    <logger name="org.thingsboard.trendz.service.task.TaskRuntimeService" level="DEBUG" />-->
+        <!--    <logger name="org.thingsboard.trendz.service.provider.TbRestDataSource" level="DEBUG" />-->
     
         <root level="INFO">
             <appender-ref ref="fileLogAppender"/>
