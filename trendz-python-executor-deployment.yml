@@ -34,7 +34,7 @@ spec:
 #                      - working-node
       containers:
         - name: trendz-python-executor-container
-          image: thingsboard/trendz-python-executor:1.15.0.6
+          image: thingsboard/trendz-python-executor:1.15.1.1
           imagePullPolicy: Always
           resources:
             limits:
