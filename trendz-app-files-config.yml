@@ -1,0 +1,64 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trendz-app-files-config
+  namespace: trendz
+  labels:
+    name: trendz-app-files-config-label
+data:
+  trendz.conf: |
+    # Mounted by trendz-app-files-config
+    export LOG_FILENAME=trendz.out
+    export LOADER_PATH=/usr/share/trendz/conf
+    
+    export JAVA_OPTS="$JAVA_OPTS -Dplatform=deb"
+    export JAVA_OPTS="$JAVA_OPTS -Dinstall.data_dir=/usr/share/trendz/data"
+    export JAVA_OPTS="$JAVA_OPTS -XX:+IgnoreUnrecognizedVMOptions"
+    
+    export JAVA_OPTS="$JAVA_OPTS -Xss1m"
+    export JAVA_OPTS="$JAVA_OPTS -XX:MaxMetaspaceSize=256m"
+    export JAVA_OPTS="$JAVA_OPTS -XX:MaxDirectMemorySize=256m"
+    export JAVA_OPTS="$JAVA_OPTS -XX:+HeapDumpOnOutOfMemoryError"
+    export JAVA_OPTS="$JAVA_OPTS -XX:+ExitOnOutOfMemoryError"
+    export JAVA_OPTS="$JAVA_OPTS -XX:+AlwaysPreTouch"
+    export JAVA_OPTS="$JAVA_OPTS -XX:NativeMemoryTracking=summary"
+    export JAVA_OPTS="$JAVA_OPTS -XX:HeapDumpPath=/data/heap-dumps/${TB_SERVICE_ID}-heapdump.bin"
+
+  logback.xml: |
+    <?xml version="1.0" encoding="UTF-8" ?>
+    
+    <!DOCTYPE configuration>
+    <configuration scan="true" scanPeriod="10 seconds">
+    
+        <appender name="fileLogAppender"
+                  class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>/var/log/trendz/trendz.log</file>
+            <rollingPolicy
+                    class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+                <fileNamePattern>/var/log/trendz/trendz.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+                <maxFileSize>100MB</maxFileSize>
+                <maxHistory>30</maxHistory>
+                <totalSizeCap>3GB</totalSizeCap>
+            </rollingPolicy>
+            <encoder>
+                <pattern>%d{ISO8601} [%thread] %-5level %logger{36} - %msg%replace( trace=%X{traceId:-}){' trace=$', ''}%n</pattern>
+            </encoder>
+        </appender>
+    
+        <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>%d{ISO8601} [%thread] %-5level %logger{36} - %msg%replace( trace=%X{traceId:-}){' trace=$', ''}%n</pattern>
+            </encoder>
+        </appender>
+    
+        <logger name="org.thingsboard.trendz" level="INFO" />
+        <logger name="org.thingsboard.trendz.service.customize" level="WARN" />
+        <logger name="org.hibernate.engine.jdbc.spi.SqlExceptionHelper" level="WARN" />
+    
+        <root level="INFO">
+            <appender-ref ref="fileLogAppender"/>
+            <appender-ref ref="STDOUT"/>
+        </root>
+    
+    </configuration>
+---

@@ -1,0 +1,33 @@
+# Environment of Trendz: trendz-app-deployment.yml reads all of it through envFrom. The Deployment keeps only what is
+# specific to one installation (TB_API_URL, the license, the pod name) and the secrets; a name set there wins over
+# this map. A change here reaches the pods only on a restart:
+#   kubectl -n trendz rollout restart deployment/trendz-app-deployment
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trendz-app-env-config
+  namespace: trendz
+data:
+  # ---- Load profile, per Trendz pod. Pod CPU / memory: trendz-app-deployment.yml; the executor's: its deployment.
+  JAVA_OPTS: "-Xms2000m -Xmx2000m"  # heap; the pod limit (3500M) leaves ~1.5 GB for metaspace, threads, buffers
+  # Python scripts in flight per Trendz pod. Every one runs on the executor at the same time, so this, times the
+  # number of Trendz pods, is what one executor pod may have to hold in memory: raise it only with the executor's memory
+  SCRIPT_ENGINE_MAX_CONNECTIONS: "2"
+  SCRIPT_ENGINE_WEBSOCKET_BUFFER_SIZE: "20971520"  # largest message to / from the executor; same value as NETWORK_BUFFER_SIZE there
+  SCRIPT_ENGINE_TIMEOUT: "30000"  # ms a script may run
+
+  # ---- Cache, locks and rate limiter: Valkey (trendz-cache-deployment.yml). Required with more than one Trendz
+  # replica, so that every pod sees the same cache and the same locks; harmless with one.
+  CACHE_TYPE: "redis"
+  LOCK_TYPE: "redis"
+  RATE_LIMITER_TYPE: "redis"
+  CACHE_REDIS_HEALTH_ENABLE: "true"
+  REDIS_HOST: "trendz-cache-service"
+
+  # ---- Python executor
+  SCRIPT_ENGINE_PROVIDER: "DOCKER_CONTAINER"
+  SCRIPT_ENGINE_DOCKER_PROVIDER_URL: "trendz-python-executor-service:8181"
+
+  # ---- Actuator: only what probes and an optional Prometheus need (the ingress blocks /trendz/actuator anyway)
+  ACTUATOR_ENDPOINTS_INCLUDE: "health, prometheus"
+  ACTUATOR_ENDPOINTS_EXCLUDE: ""

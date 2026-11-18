@@ -1,0 +1,18 @@
+# Environment of the Python executor: trendz-python-executor-deployment.yml reads all of it through envFrom. The
+# Deployment keeps only the pod name and the channel secret; a name set there wins over this map. A change here
+# reaches the pods only on a restart:
+#   kubectl -n trendz rollout restart deployment/trendz-python-executor-deployment
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trendz-python-executor-env-config
+  namespace: trendz
+data:
+  # ---- Load profile, per executor pod (1600m / 2500M: trendz-python-executor-deployment.yml)
+  JAVA_OPTS: "-Xms384m -Xmx384m"  # heap; also caps the size of a script result (~8x heap)
+  # Memory guard: past this total of all running scripts it stops the largest run, before the kernel kills the whole
+  # container. Pod limit 2500M - JVM ~640 MB - margin; change it together with the pod limit
+  PYTHON_SCRIPTS_MAX_TOTAL_MEMORY_MB: "1500"
+
+  # ---- Messages to / from Trendz
+  NETWORK_BUFFER_SIZE: "20971520"  # largest message; same value as SCRIPT_ENGINE_WEBSOCKET_BUFFER_SIZE in Trendz

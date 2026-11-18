@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: trendz-python-executor-network-policy
+  namespace: trendz
+spec:
+  # the executor runs user Python: only Trendz may call it, and it may call nothing (enforced only where the
+  # cluster's network plugin supports NetworkPolicy)
+  podSelector:
+    matchLabels:
+      app: trendz-python-executor-pod-label
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: trendz-app-pod-label
+      ports:
+        - protocol: TCP
+          port: 8181
+  # no egress rules: internet, cloud metadata, cluster services, the database and DNS are all denied
+  egress: []
+---

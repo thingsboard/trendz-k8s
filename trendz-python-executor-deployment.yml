@@ -9,9 +9,14 @@ spec:
   selector:
     matchLabels:
       app: trendz-python-executor-pod-label
+  # One executor per Trendz replica: every Trendz pod sends at most SCRIPT_ENGINE_MAX_CONNECTIONS scripts at once
+  # (trendz-app-env-config.yml), and the memory of this pod is sized for that
   replicas: 1
   strategy:
-    type: Recreate
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   template:
     metadata:
       name: trendz-app-pod
@@ -22,9 +27,29 @@ spec:
         prometheus.io/path: '/actuator/prometheus'
         prometheus.io/port: '8181'
     spec:
-      terminationGracePeriodSeconds: 5
+      terminationGracePeriodSeconds: 30
       # runs user Python: a mounted token would hand the Kubernetes API to every calculation field
       automountServiceAccountToken: false
+      # no *_SERVICE_HOST/PORT env: user code does not get a map of the namespace
+      enableServiceLinks: false
+      securityContext:
+        runAsUser: 799
+        runAsNonRoot: true
+        fsGroup: 799
+        runAsGroup: 799
+        seccompProfile:
+          type: RuntimeDefault
+      # Spread the replicas over the nodes. Only the pods of the same revision count (pod-template-hash), so during a
+      # rollout the old pods do not block the new ones
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: trendz-python-executor-pod-label
+          matchLabelKeys:
+            - pod-template-hash
 #      affinity:
 #        nodeAffinity:
 #          requiredDuringSchedulingIgnoredDuringExecution:
@@ -36,36 +61,40 @@ spec:
 #                      - working-node
       containers:
         - name: trendz-python-executor-container
-          image: thingsboard/trendz-python-executor:1.16.1
+          image: thingsboard/trendz-python-executor:1.16.1.1
           imagePullPolicy: Always
+          # User scripts run as python-script-N users through script-launcher, which has file capabilities: its exec needs
+          # privilege escalation and SETUID/SETGID in the bounding set. The image strips every setuid/setgid bit,
+          # so script-launcher is the only way to use them. Images that still have setuid binaries must not run with this.
+          securityContext:
+            allowPrivilegeEscalation: true
+            capabilities:
+              drop: ["ALL"]
+              add: ["SETUID", "SETGID"]
           resources:
             limits:
-              cpu:    "1500m"
-              memory: "1024M"
+              cpu:    "1600m"
+              memory: "2500M"
             requests:
-              cpu:    "1500m"
-              memory: "1024M"
+              cpu:    "1600m"
+              memory: "2500M"
           ports:
             - name: exec-api-pod
               protocol: TCP
               containerPort: 8181
+          envFrom:
+            - configMapRef:
+                name: trendz-python-executor-env-config
           env:
             - name: TB_SERVICE_ID
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: JAVA_OPTS
-              value: "-Xms384m -Xmx384m"
-            - name: SCRIPT_ENGINE_RUNTIME_TIMEOUT
-              value: "30000"
-            - name: EXECUTOR_MANAGER
-              value: "1"
-            - name: EXECUTOR_SCRIPT_ENGINE
-              value: "6"
-            - name: THROTTLING_QUEUE_CAPACITY
-              value: "10"
-            - name: NETWORK_BUFFER_SIZE
-              value: "20971520"
+            - name: PYTHON_EXECUTOR_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: trendz-python-executor-secret
+                  key: PYTHON_EXECUTOR_SECRET
           readinessProbe:
             httpGet:
               path: /actuator
@@ -91,12 +120,12 @@ spec:
             timeoutSeconds: 1
             failureThreshold: 10
           volumeMounts:
-            - name: trendz-python-executor-config
+            - name: trendz-python-executor-files-config
               mountPath: /python-executor-config-files
       volumes:
-        - name: trendz-python-executor-config
+        - name: trendz-python-executor-files-config
           configMap:
-            name: trendz-python-executor-config
+            name: trendz-python-executor-files-config
             items:
               - key: requirements.txt
                 path: requirements.txt

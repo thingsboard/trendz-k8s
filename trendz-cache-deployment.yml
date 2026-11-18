@@ -1,0 +1,130 @@
+# Valkey (Redis-compatible): the cache, the locks and the ThingsBoard rate limiter shared by all Trendz replicas
+# (trendz-app-env-config.yml: CACHE_TYPE, LOCK_TYPE, RATE_LIMITER_TYPE, REDIS_HOST). It holds nothing that cannot be
+# rebuilt, so it keeps no data on disk: a restart only empties the cache.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trendz-cache-config
+  namespace: trendz
+  labels:
+    name: trendz-cache-config-label
+data:
+  redis-config.conf: |-
+    bind * -::*
+    port 6379
+    protected-mode no
+    tcp-keepalive 300
+    databases 1
+    # below the pod limit (300M), so Valkey refuses writes before the kernel kills it
+    maxmemory 200mb
+    save ""
+    appendonly no
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trendz-cache-deployment
+  namespace: trendz
+  labels:
+    app: trendz-cache-deployment-label
+spec:
+  selector:
+    matchLabels:
+      app: trendz-cache-pod-label
+  replicas: 1
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      name: trendz-cache-pod
+      labels:
+        app: trendz-cache-pod-label
+    spec:
+      terminationGracePeriodSeconds: 60
+      automountServiceAccountToken: false
+      securityContext:
+        runAsUser: 999
+        runAsNonRoot: true
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: redis-container
+          image: valkey/valkey:9.1.0
+          imagePullPolicy: Always
+          command:
+            - valkey-server
+            - "/redis/redis-config.conf"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            limits:
+              cpu: "200m"
+              memory: "300M"
+            requests:
+              cpu: "200m"
+              memory: "300M"
+          ports:
+            - name: cache-api-pod
+              protocol: TCP
+              containerPort: 6379
+          readinessProbe:
+            periodSeconds: 5
+            tcpSocket:
+              port: 6379
+          livenessProbe:
+            periodSeconds: 5
+            tcpSocket:
+              port: 6379
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+            - name: redis-config
+              mountPath: /redis/redis-config.conf
+              subPath: redis-config.conf
+      volumes:
+        - name: redis-data
+          emptyDir: { }
+        - name: redis-config
+          configMap:
+            name: trendz-cache-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: trendz-cache-service
+  namespace: trendz
+spec:
+  type: ClusterIP
+  selector:
+    app: trendz-cache-pod-label
+  ports:
+    - name: cache-api-service
+      protocol: TCP
+      port: 6379
+      targetPort: cache-api-pod
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: trendz-cache-network-policy
+  namespace: trendz
+spec:
+  # Valkey has no password here: only Trendz may reach it
+  podSelector:
+    matchLabels:
+      app: trendz-cache-pod-label
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: trendz-app-pod-label
+      ports:
+        - protocol: TCP
+          port: 6379
+---

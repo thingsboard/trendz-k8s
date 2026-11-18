@@ -9,9 +9,15 @@ spec:
   selector:
     matchLabels:
       app: trendz-app-pod-label
+  # Scale by raising this: the replicas share Valkey (trendz-cache-deployment.yml) and a ReadWriteMany volume
+  # (trendz-app-shared-pvc.yml). Keep one executor per Trendz replica (trendz-python-executor-deployment.yml)
   replicas: 1
   strategy:
-    type: Recreate
+    # a new pod starts before an old one stops, so the rollout has no downtime even with one replica
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   template:
     metadata:
       name: trendz-app-pod
@@ -22,7 +28,25 @@ spec:
         prometheus.io/path: '/actuator/prometheus'
         prometheus.io/port: '8888'
     spec:
-      terminationGracePeriodSeconds: 5
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsUser: 799
+        runAsNonRoot: true
+        fsGroup: 799
+        runAsGroup: 799
+        seccompProfile:
+          type: RuntimeDefault
+      # Spread the replicas over the nodes. Only the pods of the same revision count (pod-template-hash), so during a
+      # rollout the old pods do not block the new ones
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: trendz-app-pod-label
+          matchLabelKeys:
+            - pod-template-hash
 #      affinity:
 #        nodeAffinity:
 #          requiredDuringSchedulingIgnoredDuringExecution:
@@ -34,45 +58,59 @@ spec:
 #                      - working-node
       containers:
         - name: trendz-app-container
-          image: thingsboard/trendz:1.16.1
+          image: thingsboard/trendz:1.16.1.1
           imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           resources:
             limits:
-              cpu:    "1500m"
-              memory: "3700M"
+              cpu:    "1600m"
+              memory: "3500M"
             requests:
-              cpu:    "1500m"
-              memory: "3700M"
+              cpu:    "1600m"
+              memory: "3500M"
           ports:
             - name: app-api-pod
               protocol: TCP
               containerPort: 8888
+          envFrom:
+            - configMapRef:
+                name: trendz-app-env-config
           env:
             - name: TB_SERVICE_ID
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: JAVA_OPTS
-              value: "-Xms2000m -Xmx2000m"
+            - name: TB_API_URL
+              value: "http://thingsboard-app:8080"
             - name: TRENDZ_LICENSE_SECRET # Only for legacy subscriptions / licenses
               value: "PUT_LICENSE_HERE"
             - name: TRENDZ_LICENSE_INSTANCE_DATA_FILE
               value: "/data/license.data"
-            - name: JWT_TOKEN_SIGNING_KEY # Only for ThingsBoard older than 4.3.0
+            - name: JWT_TOKEN_SIGNING_KEY # Only for ThingsBoard older than v4.3.0
               value: "thingsboardDefaultSigningKey"
-            - name: TB_API_URL
-              value: "http://thingsboard-app:8080"
-            - name: SCRIPT_ENGINE_PROVIDER
-              value: "DOCKER_CONTAINER"
-            - name: SCRIPT_ENGINE_DOCKER_PROVIDER_URL
-              value: "trendz-python-executor-service:8181"
-            - name: SCRIPT_ENGINE_TIMEOUT
-              value: "30000"
-            - name: SCRIPT_ENGINE_WEBSOCKET_CONCURRENCY
-              value: "5"
-          envFrom:
-            - configMapRef:
-                name: trendz-app-db-config
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: trendz-db-app-secret
+                  key: SPRING_DATASOURCE_URL
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: trendz-db-app-secret
+                  key: SPRING_DATASOURCE_USERNAME
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: trendz-db-app-secret
+                  key: SPRING_DATASOURCE_PASSWORD
+            - name: PYTHON_EXECUTOR_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: trendz-python-executor-secret
+                  key: PYTHON_EXECUTOR_SECRET
           readinessProbe:
             httpGet:
               path: /trendz/actuator
@@ -98,16 +136,16 @@ spec:
             timeoutSeconds: 1
             failureThreshold: 10
           volumeMounts:
-            - name: trendz-app-config
+            - name: trendz-app-files-config
               mountPath: /trendz-config-files
             - name: trendz-app-logs
               mountPath: /var/log/trendz
-            - name: trendz-app-pvc
+            - name: trendz-app-shared
               mountPath: /data
       volumes:
-        - name: trendz-app-config
+        - name: trendz-app-files-config
           configMap:
-            name: trendz-app-config
+            name: trendz-app-files-config
             items:
               - key: trendz.conf
                 path: trendz.conf
@@ -115,9 +153,9 @@ spec:
                 path: logback.xml
         - name: trendz-app-logs
           emptyDir: { }
-        - name: trendz-app-pvc
+        - name: trendz-app-shared
           persistentVolumeClaim:
-            claimName: trendz-app-pvc
+            claimName: trendz-app-shared-pvc
 ---
 apiVersion: v1
 kind: Service

@@ -1,0 +1,17 @@
+# /data of every Trendz pod: the license instance file and heap dumps. All replicas mount the same volume, so it must
+# be ReadWriteMany (NFS, EFS, Azure Files, CephFS, ...). Set storageClassName to such a class of your cluster.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: trendz-app-shared-pvc
+  namespace: trendz
+  labels:
+    app: trendz-app-shared-pvc-label
+spec:
+  accessModes:
+    - ReadWriteMany
+  # storageClassName: <a ReadWriteMany storage class>
+  resources:
+    requests:
+      storage: 10Gi
+---
