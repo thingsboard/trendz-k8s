@@ -23,6 +23,8 @@ spec:
         prometheus.io/port: '8181'
     spec:
       terminationGracePeriodSeconds: 5
+      # runs user Python: a mounted token would hand the Kubernetes API to every calculation field
+      automountServiceAccountToken: false
 #      affinity:
 #        nodeAffinity:
 #          requiredDuringSchedulingIgnoredDuringExecution:
@@ -34,7 +36,7 @@ spec:
 #                      - working-node
       containers:
         - name: trendz-python-executor-container
-          image: thingsboard/trendz-python-executor:1.16.0.1
+          image: thingsboard/trendz-python-executor:1.16.1
           imagePullPolicy: Always
           resources:
             limits:

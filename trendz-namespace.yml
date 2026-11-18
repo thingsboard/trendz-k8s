@@ -5,3 +5,11 @@ metadata:
   labels:
     name: trendz
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: default
+  namespace: trendz
+# every pod without its own account runs as `default`; none of them talks to the Kubernetes API
+automountServiceAccountToken: false
+---
