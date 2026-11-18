@@ -36,7 +36,6 @@ spec:
         runAsUser: 799
         runAsNonRoot: true
         fsGroup: 799
-        runAsGroup: 799
         seccompProfile:
           type: RuntimeDefault
       # Spread the replicas over the nodes. Only the pods of the same revision count (pod-template-hash), so during a

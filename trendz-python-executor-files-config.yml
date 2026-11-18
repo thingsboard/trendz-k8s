@@ -33,7 +33,7 @@ data:
     export JAVA_OPTS="$JAVA_OPTS -XX:+HeapDumpOnOutOfMemoryError"
     export JAVA_OPTS="$JAVA_OPTS -XX:+ExitOnOutOfMemoryError"
     export JAVA_OPTS="$JAVA_OPTS -XX:+AlwaysPreTouch"
-    export JAVA_OPTS="$JAVA_OPTS -XX:HeapDumpPath=/dumps/${TB_SERVICE_ID}-heapdump.bin"
+    export JAVA_OPTS="$JAVA_OPTS -XX:HeapDumpPath=/home/python-executor/heap-dumps/${TB_SERVICE_ID}-heapdump.bin"
 
   logback.xml: |
     <?xml version="1.0" encoding="UTF-8" ?>

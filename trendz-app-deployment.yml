@@ -29,6 +29,7 @@ spec:
         prometheus.io/port: '8888'
     spec:
       terminationGracePeriodSeconds: 60
+      automountServiceAccountToken: false
       securityContext:
         runAsUser: 799
         runAsNonRoot: true

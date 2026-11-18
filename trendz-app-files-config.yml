@@ -22,7 +22,7 @@ data:
     export JAVA_OPTS="$JAVA_OPTS -XX:+ExitOnOutOfMemoryError"
     export JAVA_OPTS="$JAVA_OPTS -XX:+AlwaysPreTouch"
     export JAVA_OPTS="$JAVA_OPTS -XX:NativeMemoryTracking=summary"
-    export JAVA_OPTS="$JAVA_OPTS -XX:HeapDumpPath=/data/heap-dumps/${TB_SERVICE_ID}-heapdump.bin"
+    export JAVA_OPTS="$JAVA_OPTS -XX:HeapDumpPath=/data/${TB_SERVICE_ID}-heapdump.bin"
 
   logback.xml: |
     <?xml version="1.0" encoding="UTF-8" ?>
