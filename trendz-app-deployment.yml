@@ -34,7 +34,7 @@ spec:
 #                      - working-node
       containers:
         - name: trendz-app-container
-          image: thingsboard/trendz:1.15.2.1
+          image: thingsboard/trendz:1.16.0.1
           imagePullPolicy: Always
           resources:
             limits:
