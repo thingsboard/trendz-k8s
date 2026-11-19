@@ -1,14 +1,14 @@
-# Environment of Trendz: trendz-app-deployment.yml reads all of it through envFrom. The Deployment keeps only what is
+# Environment of Trendz: trendz-app-statefulset.yml reads all of it through envFrom. The StatefulSet keeps only what is
 # specific to one installation (TB_API_URL, the license, the pod name) and the secrets; a name set there wins over
 # this map. A change here reaches the pods only on a restart:
-#   kubectl -n trendz rollout restart deployment/trendz-app-deployment
+#   kubectl -n trendz rollout restart statefulset/trendz-app
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: trendz-app-env-config
   namespace: trendz
 data:
-  # ---- Load profile, per Trendz pod. Pod CPU / memory: trendz-app-deployment.yml; the executor's: its deployment.
+  # ---- Load profile, per Trendz pod. Pod CPU / memory: trendz-app-statefulset.yml; the executor's: its deployment.
   JAVA_OPTS: "-Xms2000m -Xmx2000m"  # heap; the pod limit (3500M) leaves ~1.5 GB for metaspace, threads, buffers
   # Python scripts in flight per Trendz pod. Every one runs on the executor at the same time, so this, times the
   # number of Trendz pods, is what one executor pod may have to hold in memory: raise it only with the executor's memory

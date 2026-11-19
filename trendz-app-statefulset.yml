@@ -1,23 +1,29 @@
+# A StatefulSet, not a Deployment: with a legacy license (TRENDZ_LICENSE_SECRET) every Trendz replica is a separate
+# instance on the license server and keeps its own instance file (TRENDZ_LICENSE_INSTANCE_DATA_FILE below). The file
+# carries a token the license server replaces on every check, so replicas sharing one file overwrite each other's
+# token and fail the check. A StatefulSet gives the pods stable names (trendz-app-0, trendz-app-1, ...), and so a
+# stable file per pod across restarts; a Deployment's random pod names would activate a new instance on every restart.
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
-  name: trendz-app-deployment
+  name: trendz-app
   namespace: trendz
   labels:
-    app: trendz-app-deployment-label
+    app: trendz-app-statefulset-label
 spec:
+  serviceName: trendz-app-headless-service
   selector:
     matchLabels:
       app: trendz-app-pod-label
   # Scale by raising this: the replicas share Valkey (trendz-cache-deployment.yml) and a ReadWriteMany volume
   # (trendz-app-shared-pvc.yml). Keep one executor per Trendz replica (trendz-python-executor-deployment.yml)
   replicas: 1
-  strategy:
-    # a new pod starts before an old one stops, so the rollout has no downtime even with one replica
+  # replicas start and stop together, not one after another
+  podManagementPolicy: Parallel
+  # a rollout replaces the pods one at a time, keeping each pod's name: with one replica Trendz is down while its
+  # pod restarts; with two or more the others keep serving
+  updateStrategy:
     type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 0
-      maxSurge: 1
   template:
     metadata:
       name: trendz-app-pod
@@ -37,8 +43,7 @@ spec:
         runAsGroup: 799
         seccompProfile:
           type: RuntimeDefault
-      # Spread the replicas over the nodes. Only the pods of the same revision count (pod-template-hash), so during a
-      # rollout the old pods do not block the new ones
+      # Spread the replicas over the nodes
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
@@ -46,8 +51,6 @@ spec:
           labelSelector:
             matchLabels:
               app: trendz-app-pod-label
-          matchLabelKeys:
-            - pod-template-hash
 #      affinity:
 #        nodeAffinity:
 #          requiredDuringSchedulingIgnoredDuringExecution:
@@ -88,8 +91,10 @@ spec:
               value: "http://thingsboard-app:8080"
             - name: TRENDZ_LICENSE_SECRET # Only for legacy subscriptions / licenses
               value: "PUT_LICENSE_HERE"
+            # One file per pod on the shared volume, named after the pod (TB_SERVICE_ID above; Kubernetes expands
+            # $(...) from variables listed earlier). A flat name: the license client creates the file, not a folder
             - name: TRENDZ_LICENSE_INSTANCE_DATA_FILE
-              value: "/data/license.data"
+              value: "/data/license-$(TB_SERVICE_ID).data"
             - name: JWT_TOKEN_SIGNING_KEY # Only for ThingsBoard older than v4.3.0
               value: "thingsboardDefaultSigningKey"
             - name: SPRING_DATASOURCE_URL
@@ -165,6 +170,22 @@ metadata:
   namespace: trendz
 spec:
   type: ClusterIP
+  selector:
+    app: trendz-app-pod-label
+  ports:
+    - name: app-api-service
+      protocol: TCP
+      port: 8888
+      targetPort: app-api-pod
+---
+# Governing service of the StatefulSet (serviceName above); clients use trendz-app-service
+apiVersion: v1
+kind: Service
+metadata:
+  name: trendz-app-headless-service
+  namespace: trendz
+spec:
+  clusterIP: None
   selector:
     app: trendz-app-pod-label
   ports:
