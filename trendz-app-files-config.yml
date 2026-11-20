@@ -15,6 +15,8 @@ data:
     export JAVA_OPTS="$JAVA_OPTS -Dinstall.data_dir=/usr/share/trendz/data"
     export JAVA_OPTS="$JAVA_OPTS -XX:+IgnoreUnrecognizedVMOptions"
     
+    export JAVA_OPTS="$JAVA_OPTS -XX:-UseBASE64Intrinsics"
+    
     export JAVA_OPTS="$JAVA_OPTS -Xss1m"
     export JAVA_OPTS="$JAVA_OPTS -XX:MaxMetaspaceSize=256m"
     export JAVA_OPTS="$JAVA_OPTS -XX:MaxDirectMemorySize=256m"

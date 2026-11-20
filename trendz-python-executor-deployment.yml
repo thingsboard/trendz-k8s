@@ -60,7 +60,7 @@ spec:
 #                      - working-node
       containers:
         - name: trendz-python-executor-container
-          image: thingsboard/trendz-python-executor:1.16.1.1
+          image: thingsboard/trendz-python-executor:1.16.1.2
           imagePullPolicy: Always
           # User scripts run as python-script-N users through script-launcher, which has file capabilities: its exec needs
           # privilege escalation and SETUID/SETGID in the bounding set. The image strips every setuid/setgid bit,
