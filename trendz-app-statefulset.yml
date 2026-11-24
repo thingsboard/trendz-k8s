@@ -62,7 +62,7 @@ spec:
 #                      - working-node
       containers:
         - name: trendz-app-container
-          image: thingsboard/trendz:1.16.1.2
+          image: thingsboard/trendz:1.16.1.3
           imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false
